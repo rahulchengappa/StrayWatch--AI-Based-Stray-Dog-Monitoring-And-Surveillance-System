@@ -1,8 +1,10 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>StrayWatch</title>
+
   <style>
     body {
       margin: 0;
@@ -42,11 +44,9 @@
       from { transform: scale(0); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
     }
-
     @keyframes vanishTowards {
       to { transform: scale(0.5) translateY(-100px); opacity: 0; }
     }
-
     @keyframes fadeOut {
       to { opacity: 0; visibility: hidden; }
     }
@@ -56,50 +56,18 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin-top: 80px; /* Add space for title */
+      margin-top: 80px;
       opacity: 0;
       animation: fadeIn 1.5s ease-in 3s forwards;
     }
 
-    @keyframes fadeIn {
-      to { opacity: 1; }
-    }
+    @keyframes fadeIn { to { opacity: 1; } }
 
     .title {
-      font-size: 4rem; /* Larger size for title */
+      font-size: 4rem;
       color: black;
-      margin-bottom: 40px; /* Space between title and cards */
+      margin-bottom: 40px;
       font-weight: bold;
-    }
-
-    .button-wrapper {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      align-items: center;
-      flex-direction: row;
-      opacity: 0;
-      animation: fadeIn 1.5s ease-in 3s forwards;
-    }
-
-    button {
-      padding: 20px 40px;
-      font-size: 20px;
-      background-color: black;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-      transition: transform 0.3s ease, background-color 0.3s ease, color 0.3s ease;
-      width: 200px;
-      text-align: center;
-    }
-
-    button:hover {
-      background-color: #4caf50;
-      color: white;
-      transform: scale(1.1);
     }
 
     .card-container {
@@ -130,116 +98,73 @@
     }
   </style>
 </head>
+
 <body>
+
+  <!-- Intro -->
   <div id="intro">
     <h1>StrayWatch</h1>
   </div>
 
+  <!-- Main Content -->
   <div class="content">
     <div class="title">StrayWatch</div>
+
     <div class="card-container">
-      <div class="card" onclick="accessCamera()">Access Camera</div>
-      <div class="card" onclick="viewNearby()">Stray Surveillance</div>
-      <div class="card" onclick="upload()">Upload Video/Photo</div>
+      
+      <!-- Access Camera (Fullscreen YOLO Stream) -->
+      <div class="card" onclick="window.location.href='http://127.0.0.1:8000/camera'">
+        Access Camera
+      </div>
+
+      <!-- Placeholder -->
+      <div class="card" onclick="window.location.href='/surveillance'">Stray Surveillance</div>
+
+
+      <!-- Upload -->
+      <div class="card" onclick="upload()">
+        Upload Video/Photo
+      </div>
+
     </div>
   </div>
 
-  <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;" />
+  <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;" />
 
   <script>
-    let cameraStream;
+    function upload() {
+      const input = document.getElementById("fileInput");
+      input.click();
 
-    function accessCamera() {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function (stream) {
-          cameraStream = stream;
+      input.onchange = () => {
+        const file = input.files[0];
+        if (!file) return;
 
-          const video = document.createElement("video");
-          video.id = "cameraFeed";
-          video.srcObject = stream;
-          video.autoplay = true;
-          video.playsInline = true;
-          video.style.position = "relative";
-          video.style.width = "100%";
-          video.style.maxWidth = "400px";
-          video.style.borderRadius = "10px";
-          document.body.appendChild(video);
+        const formData = new FormData();
+        formData.append("file", file);
 
-          const closeIcon = document.createElement("span");
-          closeIcon.innerHTML = "&times;";
-          closeIcon.style.position = "absolute";
-          closeIcon.style.top = "10px";
-          closeIcon.style.right = "20px";
-          closeIcon.style.fontSize = "28px";
-          closeIcon.style.cursor = "pointer";
-          closeIcon.style.color = "#fff";
-          closeIcon.style.zIndex = "999";
-          closeIcon.onclick = closeCamera;
-          document.body.appendChild(closeIcon);
-
-          const captureBtn = document.createElement("button");
-          captureBtn.innerHTML = "📸";
-          captureBtn.style.position = "absolute";
-          captureBtn.style.bottom = "40px";
-          captureBtn.style.left = "50%";
-          captureBtn.style.transform = "translateX(-50%)";
-          captureBtn.style.fontSize = "24px";
-          captureBtn.style.padding = "10px 14px";
-          captureBtn.style.borderRadius = "50%";
-          captureBtn.style.background = "#00bcd4";
-          captureBtn.style.color = "#000";
-          captureBtn.style.border = "none";
-          captureBtn.style.cursor = "pointer";
-          captureBtn.onclick = () => takePhoto(video);
-          document.body.appendChild(captureBtn);
+        fetch("http://127.0.0.1:8000/analyze", {
+          method: "POST",
+          body: formData
         })
-        .catch(function (err) {
-          showToast("Camera access denied: " + err.message);
-        });
+        .then(res => res.json())
+        .then(data => {
+          if (data.detections) {
+            const d = data.detections[0];
+            showToast(`${d.emotion} (${d.confidence}%) — ${d.distance_cm}cm`, "green");
+          } else {
+            showToast(data.message || "No dog detected.", "red");
+          }
+        })
+        .catch(err => showToast("Error: " + err.message, "red"));
+      };
     }
 
-    function closeCamera() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = null;
-      }
-      document.getElementById("cameraFeed")?.remove();
-      document.querySelector("span")?.remove();
-      document.querySelector("button[innerHTML='📸']")?.remove();
-      showToast("Camera turned off.");
+    function viewNearby() {
+      showToast("This feature is under development.", "blue");
     }
 
-    function takePhoto(videoElement) {
-      const canvas = document.createElement("canvas");
-      canvas.width = videoElement.videoWidth;
-      canvas.height = videoElement.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob(blob => {
-        sendToBackend(blob);
-      }, 'image/jpeg');
-    }
-
-    function sendToBackend(blob) {
-      const formData = new FormData();
-      formData.append('file', blob, 'capture.jpg');
-
-      fetch('http://127.0.0.1:5000/predict', {
-        method: 'POST',
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        const message = data.message || "Unknown response";
-        showToast(message, data.danger ? "red" : "green");
-      })
-      .catch(err => {
-        showToast("Error sending image: " + err.message, "red");
-      });
-    }
-
-    function showToast(message, color = "#333") {
+    function showToast(message, color="#333") {
       const toast = document.createElement("div");
       toast.textContent = message;
       toast.style.position = "fixed";
@@ -253,42 +178,12 @@
       toast.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
       toast.style.zIndex = "9999";
       document.body.appendChild(toast);
-
       setTimeout(() => toast.remove(), 3000);
     }
-
-    
-      function upload() {
-        const fileInput = document.getElementById("fileInput");
-        fileInput.click();
-      
-        fileInput.onchange = () => {
-          const file = fileInput.files[0];
-          if (file) {
-            const formData = new FormData();
-            formData.append('file', file); // MUST match the key used in Flask
-      
-            fetch('http://127.0.0.1:5000/predict', {
-              method: 'POST',
-              body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-              const message = data.message || "No message from server.";
-              showToast(message, data.danger ? "red" : "green");
-            })
-            .catch(err => {
-              showToast("Error sending file: " + err.message, "red");
-            });
-          }
-        };
-      }
-      
-    
   </script>
-</body>
-</html> 
 
+</body>
+</html>
 
 
 

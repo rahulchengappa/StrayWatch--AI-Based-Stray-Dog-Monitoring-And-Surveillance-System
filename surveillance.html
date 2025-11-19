@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StrayWatch Surveillance - Light Mode</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Heatmap -->
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* TOP BAR — only Home button */
+        #top-bar {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            z-index: 10000;
+        }
+
+        .home-btn {
+            background: white;
+            color: black;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid #aaa;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .home-btn:hover {
+            background: #f0f0f0;
+        }
+
+        /* BOTTOM FILTER BAR */
+        #bottom-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            background: rgba(255,255,255,0.9);
+            color: black;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+        }
+
+        .filter-btn:hover {
+            background: #eaeaea;
+        }
+
+        /* Side panel (Recent detections) */
+        #side-panel {
+            position: absolute;
+            top: 90px;
+            right: 20px;
+            width: 280px;
+            height: 75vh;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(5px);
+            padding: 12px;
+            color: black;
+            overflow-y: scroll;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            z-index: 10000;
+        }
+
+        .thumb {
+            width: 100%;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HOME BUTTON (TOP LEFT) -->
+    <div id="top-bar">
+        <div class="home-btn" onclick="window.location.href='/'">← Home</div>
+    </div>
+
+    <!-- FILTER BUTTONS (BOTTOM CENTER) -->
+    <div id="bottom-bar">
+        <div class="filter-btn" onclick="setFilter('all')">All</div>
+        <div class="filter-btn" onclick="setFilter('angry')">Angry</div>
+        <div class="filter-btn" onclick="setFilter('happy')">Happy</div>
+        <div class="filter-btn" onclick="setFilter('sad')">Sad</div>
+        <div class="filter-btn" onclick="setFilter('relaxed')">Relaxed</div>
+    </div>
+
+    <!-- RIGHT SIDE RECENT PANEL -->
+    <div id="side-panel">
+        <h3>Recent Detections</h3>
+        <div id="recent"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        let filterEmotion = "all";
+        let map;
+        let markersLayer = L.layerGroup();
+        let heatLayer;
+
+        function setFilter(f) {
+            filterEmotion = f;
+            loadMapData();
+        }
+
+        function emotionColor(e) {
+            return {
+                "angry": "red",
+                "sad": "orange",
+                "happy": "blue",
+                "relaxed": "green"
+            }[e] || "black";
+        }
+
+        async function fetchData() {
+            const r = await fetch("http://127.0.0.1:8000/surveillance_data");
+            return await r.json();
+        }
+
+        function initMap() {
+            map = L.map('map').setView([12.97, 77.59], 12);
+
+            /* LIGHT MODE MAP (smoothest) */
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            markersLayer.addTo(map);
+        }
+
+        async function loadMapData() {
+            const data = await fetchData();
+
+            markersLayer.clearLayers();
+            if (heatLayer) map.removeLayer(heatLayer);
+
+            const heatPts = [];
+            const recentPanel = document.getElementById("recent");
+            recentPanel.innerHTML = "";
+
+            data.forEach(point => {
+
+                if (filterEmotion !== "all" && point.emotion !== filterEmotion) return;
+
+                heatPts.push([point.lat, point.lon, 0.5]);
+
+                const marker = L.circleMarker([point.lat, point.lon], {
+                    radius: 10,
+                    fillColor: emotionColor(point.emotion),
+                    color: emotionColor(point.emotion),
+                    fillOpacity: 0.9
+                }).addTo(markersLayer);
+
+                marker.bindPopup(`
+                    <b>Emotion:</b> ${point.emotion}<br>
+                    <b>Distance:</b> ${point.distance} cm<br>
+                    <b>Confidence:</b> ${point.confidence}%<br>
+                    <small>${point.timestamp}</small><br>
+                    <img src="${point.thumbnail}" class="thumb">
+                `);
+
+                recentPanel.innerHTML += `
+                    <div style="border-bottom:1px solid #ccc;padding-bottom:8px;margin-bottom:8px;">
+                        <b>${point.emotion}</b> (${point.confidence}%)<br>
+                        Distance: ${point.distance} cm<br>
+                        <small>${point.timestamp}</small><br>
+                        <img src="${point.thumbnail}" class="thumb">
+                    </div>
+                `;
+            });
+
+            heatLayer = L.heatLayer(heatPts, {
+                radius: 25,
+                blur: 15,
+            }).addTo(map);
+        }
+
+        initMap();
+        loadMapData();
+
+        // Auto-refresh every 8 seconds (smoother)
+        setInterval(loadMapData, 8000);
+    </script>
+
+</body>
+</html>

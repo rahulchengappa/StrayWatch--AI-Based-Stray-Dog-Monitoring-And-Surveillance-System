@@ -10,6 +10,7 @@
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
       background: #fff;
+      opacity: 0.95;
       color: black;
       display: flex;
       flex-direction: column;
@@ -106,6 +107,27 @@
     <h1>StrayWatch</h1>
   </div>
 
+  <script>
+    // If "skipIntro=1" in URL → Hide intro immediately
+    if (window.location.search.includes("skipIntro=1")) {
+        document.getElementById("intro").style.display = "none";
+    }
+</script>
+<script>
+    if (window.location.search.includes("skipIntro=1")) {
+        document.getElementById("intro").style.display = "none";
+
+        // Disable fade + zoom animations
+        const intro = document.getElementById("intro");
+        intro.style.animation = "none";
+
+        // Also disable the H1 text animation
+        const title = document.querySelector("#intro h1");
+        if (title) title.style.animation = "none";
+    }
+</script>
+
+
   <!-- Main Content -->
   <div class="content">
     <div class="title">StrayWatch</div>
@@ -132,55 +154,99 @@
   <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;" />
 
   <script>
-    function upload() {
-      const input = document.getElementById("fileInput");
-      input.click();
+  function upload() {
+    const input = document.getElementById("fileInput");
+    input.click();
 
-      input.onchange = () => {
-        const file = input.files[0];
-        if (!file) return;
+    input.onchange = () => {
+      const file = input.files[0];
+      if (!file) return;
 
-        const formData = new FormData();
-        formData.append("file", file);
+      const formData = new FormData();
+      formData.append("file", file);
 
-        fetch("http://127.0.0.1:8000/analyze", {
-          method: "POST",
-          body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.detections) {
-            const d = data.detections[0];
-            showToast(`${d.emotion} (${d.confidence}%) — ${d.distance_cm}cm`, "green");
-          } else {
-            showToast(data.message || "No dog detected.", "red");
-          }
-        })
-        .catch(err => showToast("Error: " + err.message, "red"));
-      };
-    }
+      fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.detections) {
+          const d = data.detections[0];
+          showLargePopup(
+            d.emotion.toUpperCase(),
+            d.confidence,
+            d.distance
+          );
+        } else {
+          showLargePopup("No Dog Detected", null, null, true);
+        }
+      })
+      .catch(err => showLargePopup("Error", null, null, true));
+    };
+  }
 
-    function viewNearby() {
-      showToast("This feature is under development.", "blue");
-    }
+  // 🔥 Modern Large Popup
+  function showLargePopup(title, confidence, distance, isError = false) {
 
-    function showToast(message, color="#333") {
-      const toast = document.createElement("div");
-      toast.textContent = message;
-      toast.style.position = "fixed";
-      toast.style.bottom = "30px";
-      toast.style.left = "50%";
-      toast.style.transform = "translateX(-50%)";
-      toast.style.backgroundColor = color;
-      toast.style.color = "#fff";
-      toast.style.padding = "12px 24px";
-      toast.style.borderRadius = "8px";
-      toast.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-      toast.style.zIndex = "9999";
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
-  </script>
+    const popup = document.createElement("div");
+    popup.style.position = "fixed";
+    popup.style.top = "50%";
+    popup.style.left = "50%";
+    popup.style.transform = "translate(-50%, -50%) scale(0.8)";
+    popup.style.width = "350px";
+    popup.style.padding = "25px";
+    popup.style.background = "#fff";
+    popup.style.borderRadius = "15px";
+    popup.style.boxShadow = "0 8px 25px rgba(0,0,0,0.25)";
+    popup.style.textAlign = "center";
+    popup.style.zIndex = "99999";
+    popup.style.opacity = "0";
+    popup.style.transition = "all 0.25s ease";
+
+    popup.innerHTML = `
+      <h2 style="margin: 0; font-size: 2rem; color: ${isError ? "red" : "black"};">
+        ${title}
+      </h2>
+
+      ${
+        confidence !== null
+          ? `<p style="font-size: 1.2rem; margin-top: 10px;">
+              Confidence: <b>${confidence}%</b>
+            </p>
+            <p style="font-size: 1.2rem;">
+              Distance: <b>${distance} cm</b>
+            </p>`
+          : `<p style="font-size: 1.2rem; margin-top: 10px;">Try another image.</p>`
+      }
+
+      <button id="closePopupBtn" 
+        style="
+          margin-top: 20px;
+          padding: 10px 20px;
+          border: none;
+          border-radius: 8px;
+          background: black;
+          color: white;
+          font-size: 1rem;
+          cursor: pointer;
+        ">
+        Close
+      </button>
+    `;
+
+    document.body.appendChild(popup);
+
+    // animate
+    setTimeout(() => {
+      popup.style.opacity = "1";
+      popup.style.transform = "translate(-50%, -50%) scale(1)";
+    }, 10);
+
+    document.getElementById("closePopupBtn").onclick = () => popup.remove();
+  }
+</script>
+
 
 </body>
 </html>

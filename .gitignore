@@ -1,0 +1,27 @@
+# Ignore datasets
+dataset/
+
+# Ignore detection thumbnails
+detections/
+
+# Ignore model files (large)
+*.h5
+*.onnx
+*.pt
+
+# Ignore training code or backups
+archive.zip
+
+# Ignore database
+*.db
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore VSCode settings
+.vscode/
+
+# Ignore virtual environments
+venv/
+.env

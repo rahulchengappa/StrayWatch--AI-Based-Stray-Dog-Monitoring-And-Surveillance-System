@@ -102,7 +102,8 @@
 
     <!-- HOME BUTTON (TOP LEFT) -->
     <div id="top-bar">
-        <div class="home-btn" onclick="window.location.href='/'">← Home</div>
+        <div class="home-btn" onclick="history.back()">← Back</div>
+
     </div>
 
     <!-- FILTER BUTTONS (BOTTOM CENTER) -->
@@ -187,7 +188,8 @@
                     <b>Distance:</b> ${point.distance} cm<br>
                     <b>Confidence:</b> ${point.confidence}%<br>
                     <small>${point.timestamp}</small><br>
-                    <img src="${point.thumbnail}" class="thumb">
+                    <img src="/${point.thumbnail}" class="thumb">
+
                 `);
 
                 recentPanel.innerHTML += `
@@ -195,7 +197,8 @@
                         <b>${point.emotion}</b> (${point.confidence}%)<br>
                         Distance: ${point.distance} cm<br>
                         <small>${point.timestamp}</small><br>
-                        <img src="${point.thumbnail}" class="thumb">
+                        <img src="/${point.thumbnail}" class="thumb">
+
                     </div>
                 `;
             });
